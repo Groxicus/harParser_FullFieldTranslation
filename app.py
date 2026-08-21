@@ -60,6 +60,20 @@ def flatten(obj, parent_key="", sep="."):
     return items
 
 
+def looks_like_har(data) -> bool:
+    """
+    Structural check for HAR content, independent of file extension/name.
+    A valid HAR is a JSON object with a top-level "log" object that has
+    an "entries" list (entries may be empty).
+    """
+    if not isinstance(data, dict):
+        return False
+    log = data.get("log")
+    if not isinstance(log, dict):
+        return False
+    return isinstance(log.get("entries"), list)
+
+
 def extract_rows(har_data, source_filename: str, warnings: list):
     """
     Given the parsed JSON of a single HAR file, return a list of flat
@@ -67,12 +81,15 @@ def extract_rows(har_data, source_filename: str, warnings: list):
     """
     rows = []
 
+    if not looks_like_har(har_data):
+        warnings.append(
+            f"'{source_filename}' does not match HAR structure "
+            f"(expected a JSON object with log.entries); skipped."
+        )
+        return rows
+
     log = har_data.get("log", {})
     entries = log.get("entries", [])
-
-    if not isinstance(entries, list):
-        warnings.append(f"'{source_filename}' has no valid log.entries list; skipped.")
-        return rows
 
     for idx, entry in enumerate(entries):
         flat_row = flatten(entry)
@@ -148,16 +165,21 @@ st.set_page_config(page_title="HAR to CSV Parser", layout="wide")
 
 st.title("HAR to CSV Parser")
 st.write(
-    "Upload one or more `.har` files. Every field from every request/response "
+    "Upload one or more HAR files. Every field from every request/response "
     "entry is flattened and exported to a single CSV — no columns are dropped "
     "and no data is cleaned."
+)
+st.caption(
+    "Files are identified by their JSON structure (a `log.entries` object), "
+    "not by their file extension — so HAR content saved as `.txt`, `.json`, "
+    "or with no extension at all will still be picked up."
 )
 
 uploaded_files = st.file_uploader(
     "Upload HAR file(s)",
-    type=["har"],
+    type=None,  # accept any extension — validity is checked by content, not by name
     accept_multiple_files=True,
-    help="You can select multiple .har files at once.",
+    help="Select any file(s) containing HAR JSON content, regardless of extension.",
 )
 
 if uploaded_files:
