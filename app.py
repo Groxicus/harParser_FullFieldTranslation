@@ -211,7 +211,7 @@ if uploaded_files:
             import pandas as pd
 
             df = pd.DataFrame(all_rows, columns=fieldnames)
-            st.dataframe(df.head(50), use_container_width=True)
+            st.dataframe(df.head(50), width="stretch")
         except ImportError:
             st.info("Install `pandas` to see an in-app preview table. CSV download still works below.")
 
